@@ -34,7 +34,7 @@ export function FormMovimiento({ tipoInicial, fechaMin, fechaMax, fechaInicial, 
       {editar && <input type="hidden" name="id" value={editar.id} />}
       <input type="hidden" name="tipo" value={tipo} />
 
-      <div className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1" role="radiogroup" aria-label="Tipo de movimiento">
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Tipo de movimiento">
         {(["INGRESO", "EGRESO"] as const).map((t) => {
           const activo = tipo === t;
           const color = t === "INGRESO" ? "bg-card text-ingreso shadow-sm" : "bg-card text-egreso shadow-sm";
@@ -45,7 +45,7 @@ export function FormMovimiento({ tipoInicial, fechaMin, fechaMax, fechaInicial, 
               role="radio"
               aria-checked={activo}
               onClick={() => setTipo(t)}
-              className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+              className={`rounded-md px-4 py-2 text-sm font-bold transition ${
                 activo ? color : "text-muted-foreground hover:text-foreground"
               }`}
             >

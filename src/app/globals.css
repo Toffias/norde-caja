@@ -76,16 +76,16 @@ dialog::backdrop {
 }
 
 @utility card {
-  @apply rounded-2xl border border-line bg-card;
+  @apply rounded-xl border border-line bg-card;
 }
 @utility input {
-  @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20;
+  @apply w-full rounded-lg border border-input bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20;
 }
 @utility label {
   @apply mb-1.5 block text-xs font-semibold text-muted-foreground;
 }
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primario {
   @apply btn bg-brand text-brand-foreground hover:brightness-110;
@@ -100,5 +100,5 @@ dialog::backdrop {
   @apply btn border border-egreso/40 text-egreso hover:bg-egreso-bg;
 }
 @utility icono-btn {
-  @apply inline-flex size-9 items-center justify-center rounded-full border border-line bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground;
+  @apply inline-flex size-9 items-center justify-center rounded-lg border border-line bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground;
 }

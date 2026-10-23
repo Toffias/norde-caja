@@ -1,27 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Desplegable, type Opcion } from "./desplegable";
 
-export function SelectorMes({
-  periodo,
-  opciones,
-}: {
-  periodo: string;
-  opciones: { valor: string; texto: string }[];
-}) {
+export function SelectorMes({ periodo, opciones }: { periodo: string; opciones: Opcion[] }) {
   const router = useRouter();
   return (
-    <select
-      aria-label="Mes"
-      className="input w-auto pr-8 font-medium"
-      value={periodo}
-      onChange={(e) => router.push(`/?mes=${e.target.value}`)}
-    >
-      {opciones.map((o) => (
-        <option key={o.valor} value={o.valor}>
-          {o.texto}
-        </option>
-      ))}
-    </select>
+    <Desplegable
+      etiqueta="Mes"
+      className="w-60"
+      opciones={opciones}
+      valor={periodo}
+      onCambio={(v) => router.push(`/?mes=${v}`)}
+    />
   );
 }

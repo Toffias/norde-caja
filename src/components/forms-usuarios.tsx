@@ -3,6 +3,12 @@
 import { useActionState, useEffect, useRef } from "react";
 import { actualizarUsuario, cambiarMiPassword, crearUsuario } from "@/app/acciones/usuarios";
 import type { Rol } from "@/db/schema";
+import { Desplegable } from "./desplegable";
+
+const OPCIONES_ROL = [
+  { valor: "USUARIO", texto: "Usuario", detalle: "mes vigente" },
+  { valor: "ADMIN", texto: "Admin", detalle: "acceso total" },
+];
 
 function Mensajes({ estado }: { estado: { error?: string; ok?: string } }) {
   return (
@@ -34,11 +40,8 @@ export function FormNuevoUsuario() {
         <input id="nu-password" name="password" type="password" className="input" autoComplete="new-password" minLength={8} required />
       </div>
       <div>
-        <label className="label" htmlFor="nu-rol">Rol</label>
-        <select id="nu-rol" name="rol" className="input" defaultValue="USUARIO">
-          <option value="USUARIO">Usuario</option>
-          <option value="ADMIN">Admin</option>
-        </select>
+        <span className="label">Rol</span>
+        <Desplegable key={estado.ok ?? ""} etiqueta="Rol" name="rol" valor="USUARIO" opciones={OPCIONES_ROL} />
       </div>
       <button className="btn-primario" disabled={enviando}>
         {enviando ? "Creando…" : "Crear usuario"}
@@ -65,11 +68,7 @@ export function FilaUsuario({
         <div className="font-medium">{u.nombre}</div>
         <div className="text-xs text-muted-foreground">{u.usuario}{esYo && " (vos)"}</div>
       </div>
-      <select name="rol" className="input" defaultValue={u.rol} aria-label="Rol" disabled={esYo}>
-        <option value="USUARIO">Usuario</option>
-        <option value="ADMIN">Admin</option>
-      </select>
-      {esYo && <input type="hidden" name="rol" value={u.rol} />}
+      <Desplegable etiqueta={`Rol de ${u.usuario}`} name="rol" valor={u.rol} opciones={OPCIONES_ROL} deshabilitado={esYo} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="activo" defaultChecked={u.activo} disabled={esYo} />
         Activo
