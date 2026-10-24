@@ -99,8 +99,18 @@ type DatosMovimiento = {
   observaciones: string | null;
 };
 
-/** Botón de edición de una fila (sólo admin): abre el modal con el formulario y la opción de borrar. */
-export function EditarMovimiento({ m, fechaMax }: { m: DatosMovimiento; fechaMax: string }) {
+/** Botón de edición de una fila: abre el modal con el formulario y, para el admin, la opción de borrar. */
+export function EditarMovimiento({
+  m,
+  fechaMin,
+  fechaMax,
+  puedeBorrar,
+}: {
+  m: DatosMovimiento;
+  fechaMin?: string;
+  fechaMax: string;
+  puedeBorrar: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
@@ -108,8 +118,14 @@ export function EditarMovimiento({ m, fechaMax }: { m: DatosMovimiento; fechaMax
         <IconoLapiz />
       </button>
       <Modal abierto={abierto} onCerrar={() => setAbierto(false)} titulo={`Editar movimiento #${m.id}`}>
-        <FormMovimiento fechaInicial={m.fecha} fechaMax={fechaMax} editar={m} onListo={() => setAbierto(false)} />
-        <BorrarMovimiento id={m.id} onListo={() => setAbierto(false)} />
+        <FormMovimiento
+          fechaInicial={m.fecha}
+          fechaMin={fechaMin}
+          fechaMax={fechaMax}
+          editar={m}
+          onListo={() => setAbierto(false)}
+        />
+        {puedeBorrar && <BorrarMovimiento id={m.id} onListo={() => setAbierto(false)} />}
       </Modal>
     </>
   );

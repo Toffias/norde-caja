@@ -28,15 +28,21 @@ export function TablaMovimientos({
   desde: minFecha,
   hasta: maxFecha,
   esAdmin,
-  hoy,
+  puedeEditar,
+  fechaMin,
+  fechaMax,
 }: {
   filas: FilaTabla[];
   saldoInicial: number;
   desde: string;
   hasta: string;
+  /** El admin además puede borrar. */
   esAdmin: boolean;
-  /** Fecha de hoy (hora Argentina, calculada en el servidor): tope de la fecha al editar. */
-  hoy: string;
+  /** Si se muestra la columna de edición (admin siempre; usuario común sólo en el mes vigente). */
+  puedeEditar: boolean;
+  /** Límites de la fecha al editar, calculados en el servidor (hora Argentina). */
+  fechaMin?: string;
+  fechaMax: string;
 }) {
   const [texto, setTexto] = useState("");
   const [tipo, setTipo] = useState("TODOS");
@@ -204,7 +210,7 @@ export function TablaMovimientos({
                     Saldo
                   </BotonOrden>
                 </th>
-                {esAdmin && <th className="w-px px-3 py-3" />}
+                {puedeEditar && <th className="w-px px-3 py-3" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -215,7 +221,7 @@ export function TablaMovimientos({
                     Saldo inicial del mes
                   </td>
                   <td className="px-5 py-2.5 text-right num font-semibold">{pesos(saldoInicial)}</td>
-                  {esAdmin && <td />}
+                  {puedeEditar && <td />}
                 </tr>
               )}
               {visibles.map((f) => (
@@ -244,9 +250,9 @@ export function TablaMovimientos({
                   >
                     {pesos(f.saldo)}
                   </td>
-                  {esAdmin && (
+                  {puedeEditar && (
                     <td className="px-3 py-2">
-                      <EditarMovimiento m={f} fechaMax={hoy} />
+                      <EditarMovimiento m={f} fechaMin={fechaMin} fechaMax={fechaMax} puedeBorrar={esAdmin} />
                     </td>
                   )}
                 </tr>

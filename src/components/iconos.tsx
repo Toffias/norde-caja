@@ -43,6 +43,20 @@ export const IconoLapiz = () => (
     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </Icono>
 );
+export const IconoOjo = () => (
+  <Icono>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icono>
+);
+export const IconoOjoTachado = () => (
+  <Icono>
+    <path d="M3 3l18 18" />
+    <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
+    <path d="M9.9 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1" />
+    <path d="M6.6 6.6C4 8.4 2 12 2 12s3.5 7 10 7c1.5 0 2.9-.3 4.1-.8" />
+  </Icono>
+);
 export const IconoCerrar = () => (
   <Icono>
     <path d="M18 6 6 18M6 6l12 12" />

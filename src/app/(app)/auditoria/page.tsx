@@ -20,7 +20,7 @@ function describir(f?: Foto) {
 export default async function AuditoriaPage({ searchParams }: PageProps<"/auditoria">) {
   await requerirAdmin();
   const todo = (await searchParams).ver === "todo";
-  const filas = await listarAuditoria(300, todo ? undefined : ["ANULAR", "BORRAR"]);
+  const filas = await listarAuditoria(300, todo ? undefined : ["ANULAR", "BORRAR", "EDITAR"]);
 
   return (
     <div className="space-y-6">
@@ -28,10 +28,10 @@ export default async function AuditoriaPage({ searchParams }: PageProps<"/audito
         <h1 className="text-3xl font-extrabold tracking-tight">Log de anulaciones</h1>
         <div className="ml-auto flex gap-2 text-sm">
           <a href="/auditoria" className={todo ? "btn-secundario" : "btn-primario"}>
-            Anulaciones y borrados
+            Anulaciones, borrados y ediciones
           </a>
           <a href="/auditoria?ver=todo" className={todo ? "btn-primario" : "btn-secundario"}>
-            Todo (ediciones y cierres)
+            Todo (incluye cierres)
           </a>
         </div>
       </div>

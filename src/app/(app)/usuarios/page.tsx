@@ -31,8 +31,8 @@ export default async function UsuariosPage() {
       </section>
       <p className="text-xs text-muted-foreground">
         <strong>Admin:</strong> ve y modifica todos los meses, edita y borra movimientos, ve el log y administra
-        usuarios. <strong>Usuario:</strong> carga ingresos y egresos del mes vigente y puede anular el último
-        movimiento.
+        usuarios. <strong>Usuario:</strong> carga, edita y anula movimientos del mes vigente; cada edición y
+        anulación queda en el log.
       </p>
     </div>
   );

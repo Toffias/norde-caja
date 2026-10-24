@@ -113,7 +113,8 @@ export async function anularUltimo(_prev: EstadoForm, form: FormData): Promise<E
 }
 
 export async function editarMovimiento(_prev: EstadoForm, form: FormData): Promise<EstadoForm> {
-  const yo = await requerirAdmin();
+  const yo = await requerirUsuario();
+  await asegurarCierres();
   const id = Number(form.get("id"));
   const actual = await db.query.movimientos.findFirst({ where: eq(movimientos.id, id) });
   if (!actual || actual.anuladoEn) return { error: "El movimiento no existe o está anulado." };
@@ -121,6 +122,10 @@ export async function editarMovimiento(_prev: EstadoForm, form: FormData): Promi
   if (typeof datos === "string") return { error: datos };
 
   const periodo = periodoDe(datos.fecha);
+  // El usuario común sólo edita movimientos del mes vigente y no puede moverlos a otro mes.
+  if (yo.rol !== "ADMIN" && (actual.periodo !== periodoActual() || periodo !== periodoActual())) {
+    return { error: "Sólo podés editar movimientos del mes vigente, con una fecha de este mes." };
+  }
   await db.transaction(async (tx) => {
     await tx.update(movimientos).set({ ...datos, periodo }).where(eq(movimientos.id, id));
     await tx.insert(auditoria).values({

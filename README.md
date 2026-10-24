@@ -7,7 +7,7 @@ Next.js 16 + MySQL (Drizzle ORM). Pensado para el hosting Node.js de Hostinger.
 ## Roles
 
 - **Admin**: ve y modifica todos los meses (incluidos los cerrados), edita y borra movimientos, ve el log y administra usuarios.
-- **Usuario**: carga ingresos y egresos del mes vigente y puede anular el último movimiento del mes. Cada anulación queda en el log.
+- **Usuario**: carga y edita ingresos y egresos del mes vigente y puede anular el último movimiento del mes. Cada edición y anulación queda en el log.
 
 ## Cómo funciona la caja
 
