@@ -11,5 +11,6 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Fuera del chequeo: API (valida por su cuenta), archivos de Next y estáticos como el favicon o el logo.
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.(?:svg|png|ico|jpg|webp)$).*)"],
 };
