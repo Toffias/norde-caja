@@ -26,6 +26,8 @@ export const usuarios = mysqlTable("usuarios", {
   rol: mysqlEnum("rol", ROLES).notNull().default("USUARIO"),
   activo: boolean("activo").notNull().default(true),
   creadoEn: timestamp("creado_en").notNull().defaultNow(),
+  // Al cambiar la contraseña se invalida cualquier sesión emitida antes de esta fecha.
+  sesionesDesde: timestamp("sesiones_desde"),
 });
 
 // Un movimiento de caja. `periodo` (AAAA-MM) se deriva de `fecha` y agrupa por mes.

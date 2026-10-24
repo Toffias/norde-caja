@@ -18,4 +18,10 @@ export const pool = mysql.createPool({
   timezone: "Z",
   decimalNumbers: true,
 });
+// Drizzle escribe y lee TIMESTAMP como texto UTC, así que la sesión de MySQL (defaultNow()) también tiene que estar en UTC.
+pool.pool.on("connection", (conn) => {
+  conn.query("SET time_zone = '+00:00'", (err) => {
+    if (err) console.error("No se pudo fijar la zona horaria de la conexión:", err);
+  });
+});
 export const db = drizzle(pool, { schema, mode: "default" });

@@ -48,14 +48,18 @@ export const usuarioActual = cache(async (): Promise<UsuarioSesion | null> => {
   const token = (await cookies()).get(COOKIE_SESION)?.value;
   if (!token) return null;
   let id: number;
+  let emitido: number;
   try {
     const { payload } = await jwtVerify(token, clave(), { algorithms: ["HS256"] });
     id = Number(payload.sub);
+    emitido = Number(payload.iat ?? 0);
   } catch {
     return null;
   }
   const u = await db.query.usuarios.findFirst({ where: eq(usuarios.id, id) });
   if (!u || !u.activo) return null;
+  // Sesión emitida antes del último cambio de contraseña (un segundo de margen porque iat va en segundos).
+  if (u.sesionesDesde && emitido * 1000 < u.sesionesDesde.getTime() - 1000) return null;
   return { id: u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol };
 });
 

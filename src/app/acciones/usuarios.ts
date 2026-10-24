@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { ROLES, usuarios, type Rol } from "@/db/schema";
-import { requerirAdmin, requerirUsuario } from "@/lib/auth";
+import { crearSesion, requerirAdmin, requerirUsuario } from "@/lib/auth";
 import type { EstadoForm } from "@/lib/montos";
 
 const MIN_PASSWORD = 8;
@@ -51,7 +51,12 @@ export async function actualizarUsuario(_prev: EstadoForm, form: FormData): Prom
 
   await db
     .update(usuarios)
-    .set({ rol, activo, ...(password ? { passwordHash: await bcrypt.hash(password, 12) } : {}) })
+    .set({
+      rol,
+      activo,
+      // Con contraseña nueva se cortan las sesiones abiertas de ese usuario.
+      ...(password ? { passwordHash: await bcrypt.hash(password, 12), sesionesDesde: new Date() } : {}),
+    })
     .where(eq(usuarios.id, id));
   revalidatePath("/usuarios");
   return { ok: `Cambios guardados para "${u.usuario}".` };
@@ -68,6 +73,11 @@ export async function cambiarMiPassword(_prev: EstadoForm, form: FormData): Prom
   if (nueva.length < MIN_PASSWORD) return { error: `La nueva contraseña debe tener al menos ${MIN_PASSWORD} caracteres.` };
   if (nueva !== repetir) return { error: "Las contraseñas nuevas no coinciden." };
 
-  await db.update(usuarios).set({ passwordHash: await bcrypt.hash(nueva, 12) }).where(eq(usuarios.id, yo.id));
+  await db
+    .update(usuarios)
+    .set({ passwordHash: await bcrypt.hash(nueva, 12), sesionesDesde: new Date() })
+    .where(eq(usuarios.id, yo.id));
+  // Las demás sesiones quedan invalidadas; renovamos la propia para no desloguearse a sí mismo.
+  await crearSesion(yo.id);
   return { ok: "Contraseña actualizada." };
 }

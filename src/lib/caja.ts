@@ -1,19 +1,23 @@
 import "server-only";
-import { and, asc, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { db } from "@/db";
-import { auditoria, cierres, movimientos, usuarios, type Cierre } from "@/db/schema";
+import { auditoria, cierres, movimientos, usuarios, type Accion, type Cierre } from "@/db/schema";
+import { redondear } from "./montos";
 import { periodoActual, siguientePeriodo } from "./periodo";
+
+/** La base o una transacción abierta con db.transaction(): las lecturas y escrituras de la caja aceptan cualquiera. */
+export type Db = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const montoConSigno = sql<number>`CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE -${movimientos.monto} END`;
 
 /** Saldo acumulado de todos los movimientos vigentes anteriores al período. */
-export async function saldoAntesDe(periodo: string): Promise<number> {
-  const [fila] = await db
+export async function saldoAntesDe(periodo: string, conexion: Db = db): Promise<number> {
+  const [fila] = await conexion
     .select({ total: sql<string | null>`SUM(${montoConSigno})` })
     .from(movimientos)
     .where(and(isNull(movimientos.anuladoEn), lt(movimientos.periodo, periodo)));
-  return Number(fila?.total ?? 0);
+  return redondear(Number(fila?.total ?? 0));
 }
 
 export type FilaCaja = {
@@ -39,10 +43,10 @@ export type ResumenPeriodo = {
 };
 
 /** Movimientos vigentes del mes en orden cronológico, con el saldo corrido fila por fila. */
-export async function resumenPeriodo(periodo: string): Promise<ResumenPeriodo> {
+export async function resumenPeriodo(periodo: string, conexion: Db = db): Promise<ResumenPeriodo> {
   const [saldoInicial, lista, cierre] = await Promise.all([
-    saldoAntesDe(periodo),
-    db
+    saldoAntesDe(periodo, conexion),
+    conexion
       .select({
         id: movimientos.id,
         fecha: movimientos.fecha,
@@ -57,7 +61,7 @@ export async function resumenPeriodo(periodo: string): Promise<ResumenPeriodo> {
       .innerJoin(usuarios, eq(usuarios.id, movimientos.creadoPor))
       .where(and(eq(movimientos.periodo, periodo), isNull(movimientos.anuladoEn)))
       .orderBy(asc(movimientos.fecha), asc(movimientos.id)),
-    db.query.cierres.findFirst({ where: eq(cierres.periodo, periodo) }),
+    conexion.query.cierres.findFirst({ where: eq(cierres.periodo, periodo) }),
   ]);
 
   let saldo = saldoInicial;
@@ -65,11 +69,11 @@ export async function resumenPeriodo(periodo: string): Promise<ResumenPeriodo> {
   let egresos = 0;
   const filas = lista.map((m) => {
     if (m.tipo === "INGRESO") {
-      ingresos += m.monto;
-      saldo += m.monto;
+      ingresos = redondear(ingresos + m.monto);
+      saldo = redondear(saldo + m.monto);
     } else {
-      egresos += m.monto;
-      saldo -= m.monto;
+      egresos = redondear(egresos + m.monto);
+      saldo = redondear(saldo - m.monto);
     }
     return { ...m, saldo };
   });
@@ -85,8 +89,8 @@ export async function ultimoMovimiento(periodo: string) {
   });
 }
 
-async function fotoPeriodo(periodo: string) {
-  const r = await resumenPeriodo(periodo);
+async function fotoPeriodo(periodo: string, conexion: Db = db) {
+  const r = await resumenPeriodo(periodo, conexion);
   return {
     saldoInicial: r.saldoInicial,
     ingresos: r.ingresos,
@@ -98,6 +102,11 @@ async function fotoPeriodo(periodo: string) {
 /**
  * Cierra automáticamente todos los meses anteriores al vigente que todavía no tengan cierre.
  * Se llama al cargar la caja, así el cierre ocurre la primera vez que alguien entra en el mes nuevo.
+ *
+ * Recorre los meses en orden cronológico, así la foto de cada cierre nuevo usa los saldos ya
+ * vigentes. Si un mes sin cierre queda en medio de cierres posteriores (por ejemplo, se cargó algo
+ * antes del primer mes con datos), esos cierres los actualiza recalcularCierresDesde() en la misma
+ * acción que cargó el movimiento, así que acá no hace falta tocarlos.
  */
 export async function asegurarCierres(): Promise<void> {
   const actual = periodoActual();
@@ -127,14 +136,14 @@ export async function asegurarCierres(): Promise<void> {
 }
 
 /** Después de que un admin toca un mes cerrado, actualiza la foto de ese cierre y de los siguientes. */
-export async function recalcularCierresDesde(periodo: string): Promise<void> {
-  const afectados = await db
+export async function recalcularCierresDesde(periodo: string, conexion: Db = db): Promise<void> {
+  const afectados = await conexion
     .select({ periodo: cierres.periodo })
     .from(cierres)
     .where(gte(cierres.periodo, periodo))
     .orderBy(asc(cierres.periodo));
   for (const { periodo: p } of afectados) {
-    await db.update(cierres).set(await fotoPeriodo(p)).where(eq(cierres.periodo, p));
+    await conexion.update(cierres).set(await fotoPeriodo(p, conexion)).where(eq(cierres.periodo, p));
   }
 }
 
@@ -158,7 +167,8 @@ export type FilaAuditoria = {
   detalle: unknown;
 };
 
-export async function listarAuditoria(limite = 300): Promise<FilaAuditoria[]> {
+/** Últimos registros del log; si vienen `acciones`, sólo esas (el filtro va en la consulta, antes del límite). */
+export async function listarAuditoria(limite = 300, acciones?: Accion[]): Promise<FilaAuditoria[]> {
   return db
     .select({
       id: auditoria.id,
@@ -171,6 +181,7 @@ export async function listarAuditoria(limite = 300): Promise<FilaAuditoria[]> {
     })
     .from(auditoria)
     .leftJoin(anulador, eq(anulador.id, auditoria.usuarioId))
+    .where(acciones?.length ? inArray(auditoria.accion, acciones) : undefined)
     .orderBy(desc(auditoria.fecha), desc(auditoria.id))
     .limit(limite);
 }

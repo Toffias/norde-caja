@@ -20,7 +20,7 @@ Next.js 16 + MySQL (Drizzle ORM). Pensado para el hosting Node.js de Hostinger.
 
 1. `pnpm install`
 2. Copiar `.env.example` a `.env.local` y completar `DATABASE_URL`, `SESSION_SECRET` y los datos del admin.
-3. `pnpm db:push` crea las tablas.
+3. `pnpm db:push` crea las tablas. Volvé a correrlo después de actualizar el código si cambió el esquema (por ejemplo, la columna `sesiones_desde` de `usuarios`, que invalida las sesiones viejas al cambiar la contraseña).
 4. `pnpm crear-admin` crea el usuario administrador.
 5. (Opcional) `pnpm importar-excel "<ruta>\caja oficina CORREGIDA.xlsm" admin` importa los movimientos de la planilla. Sólo corre con la tabla vacía.
 6. `pnpm dev` y abrir http://localhost:3000
@@ -32,3 +32,4 @@ Otros comandos: `pnpm typecheck`, `pnpm lint`, `pnpm build`.
 - Crear la base MySQL en Hostinger y cargar `DATABASE_URL` (host `127.0.0.1`, puerto `3306`) y `SESSION_SECRET` como variables de entorno de la app.
 - Build: `pnpm build` · Start: `pnpm start`.
 - Correr `pnpm db:push` y `pnpm crear-admin` una vez contra la base de producción.
+- Al actualizar a esta versión, correr de nuevo `pnpm db:push` para agregar la columna `usuarios.sesiones_desde`.

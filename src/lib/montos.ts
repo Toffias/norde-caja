@@ -17,3 +17,8 @@ export function leerMonto(texto: string): number | null {
 }
 
 export type EstadoForm = { error?: string; ok?: string };
+
+/** Redondea a centavos para que las sumas de decimales no arrastren errores de punto flotante. */
+export function redondear(n: number): number {
+  return Math.round(n * 100) / 100;
+}

@@ -18,8 +18,18 @@ function texto(v: ExcelJS.CellValue): string {
 
 function numero(v: ExcelJS.CellValue): number {
   if (typeof v === "number") return v;
-  if (v && typeof v === "object" && "result" in v) return Number(v.result ?? 0);
-  return Number(v ?? 0);
+  if (v && typeof v === "object" && "result" in v) return Number(v.result ?? NaN);
+  if (v == null || v === "") return NaN;
+  return Number(v);
+}
+
+// La fecha puede venir directa o como resultado de una fórmula.
+function fechaCelda(v: ExcelJS.CellValue): Date | null {
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+  if (v && typeof v === "object" && "result" in v && v.result instanceof Date) {
+    return Number.isNaN(v.result.getTime()) ? null : v.result;
+  }
+  return null;
 }
 
 // "Se pagó $ 30.000 en concepto de: LIMPIEZA OFICINA" -> "LIMPIEZA OFICINA"
@@ -50,15 +60,31 @@ async function main() {
   if (!hoja) throw new Error('El archivo no tiene la hoja "CAJA".');
 
   const filas: (typeof movimientos.$inferInsert)[] = [];
+  let salteadas = 0;
   for (let r = FILA_INICIO; r <= hoja.rowCount; r++) {
     const fila = hoja.getRow(r);
-    const f = fila.getCell(COL.fecha).value;
-    if (!(f instanceof Date)) continue;
-    const fecha = f.toISOString().slice(0, 10);
+    const f = fechaCelda(fila.getCell(COL.fecha).value);
     const esIngreso = texto(fila.getCell(COL.tipo).value).startsWith("Ingreso");
-    const monto = esIngreso ? numero(fila.getCell(COL.ingresado).value) : numero(fila.getCell(COL.gastado).value);
+    const celdaMonto = fila.getCell(esIngreso ? COL.ingresado : COL.gastado).value;
+    const monto = numero(celdaMonto);
     const detalle = texto(fila.getCell(COL.detalle).value);
     const obs = texto(fila.getCell(COL.observaciones).value).trim();
+
+    if (!f) {
+      // Filas vacías del final de la planilla: se ignoran sin avisar.
+      const tieneDatos = detalle.trim() !== "" || texto(celdaMonto).trim() !== "";
+      if (tieneDatos) {
+        console.warn(`Fila ${r}: sin fecha válida, se saltea.`);
+        salteadas++;
+      }
+      continue;
+    }
+    if (!Number.isFinite(monto) || monto <= 0) {
+      console.warn(`Fila ${r}: monto inválido (${texto(celdaMonto) || "vacío"}), se saltea.`);
+      salteadas++;
+      continue;
+    }
+    const fecha = f.toISOString().slice(0, 10);
     filas.push({
       fecha,
       periodo: fecha.slice(0, 7),
@@ -76,6 +102,7 @@ async function main() {
   const ingresos = filas.filter((f) => f.tipo === "INGRESO").reduce((s, f) => s + f.monto, 0);
   const egresos = filas.filter((f) => f.tipo === "EGRESO").reduce((s, f) => s + f.monto, 0);
   console.log(`Importados ${filas.length} movimientos. Ingresos ${ingresos} · Egresos ${egresos} · Saldo ${ingresos - egresos}`);
+  console.log(`Filas salteadas: ${salteadas}.`);
 }
 
 main()

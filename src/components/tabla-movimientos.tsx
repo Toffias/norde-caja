@@ -28,12 +28,15 @@ export function TablaMovimientos({
   desde: minFecha,
   hasta: maxFecha,
   esAdmin,
+  hoy,
 }: {
   filas: FilaTabla[];
   saldoInicial: number;
   desde: string;
   hasta: string;
   esAdmin: boolean;
+  /** Fecha de hoy (hora Argentina, calculada en el servidor): tope de la fecha al editar. */
+  hoy: string;
 }) {
   const [texto, setTexto] = useState("");
   const [tipo, setTipo] = useState("TODOS");
@@ -243,7 +246,7 @@ export function TablaMovimientos({
                   </td>
                   {esAdmin && (
                     <td className="px-3 py-2">
-                      <EditarMovimiento m={f} />
+                      <EditarMovimiento m={f} fechaMax={hoy} />
                     </td>
                   )}
                 </tr>

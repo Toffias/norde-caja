@@ -20,7 +20,7 @@ function describir(f?: Foto) {
 export default async function AuditoriaPage({ searchParams }: PageProps<"/auditoria">) {
   await requerirAdmin();
   const todo = (await searchParams).ver === "todo";
-  const filas = (await listarAuditoria()).filter((f) => todo || f.accion === "ANULAR" || f.accion === "BORRAR");
+  const filas = await listarAuditoria(300, todo ? undefined : ["ANULAR", "BORRAR"]);
 
   return (
     <div className="space-y-6">

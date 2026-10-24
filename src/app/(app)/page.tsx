@@ -56,7 +56,7 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
               periodo={periodo}
               fechaInicial={esActual ? hoy() : ultimoDia(periodo)}
               fechaMin={esAdmin ? undefined : primerDia(periodo)}
-              fechaMax={esAdmin ? undefined : hoy()}
+              fechaMax={hoy()}
               ultimo={
                 ultimo
                   ? {
@@ -109,6 +109,7 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
           desde={primerDia(periodo)}
           hasta={ultimoDia(periodo)}
           esAdmin={esAdmin}
+          hoy={hoy()}
         />
       </section>
     </div>
