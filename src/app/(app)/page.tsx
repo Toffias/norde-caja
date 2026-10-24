@@ -1,9 +1,18 @@
 import { AccionesCaja } from "@/components/acciones-caja";
 import { IconoDescarga } from "@/components/iconos";
 import { SelectorMes } from "@/components/selector-mes";
+import type { EdicionVista } from "@/components/historial-movimiento";
 import { TablaMovimientos } from "@/components/tabla-movimientos";
 import { requerirUsuario } from "@/lib/auth";
-import { asegurarCierres, periodosDisponibles, resumenPeriodo, ultimoMovimiento } from "@/lib/caja";
+import {
+  asegurarCierres,
+  edicionesDe,
+  periodosDisponibles,
+  resumenPeriodo,
+  ultimoMovimiento,
+  type Edicion,
+  type FotoMovimiento,
+} from "@/lib/caja";
 import {
   esPeriodo,
   fechaCorta,
@@ -32,6 +41,9 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
     periodosDisponibles(),
     puedeEditar ? ultimoMovimiento(periodo) : null,
   ]);
+  const historial = Object.fromEntries(
+    [...(await edicionesDe(resumen.filas.map((f) => f.id)))].map(([id, lista]) => [id, lista.map(edicionVista)]),
+  );
   const opciones = (periodos.includes(periodo) ? periodos : [periodo, ...periodos]).map((p) => ({
     valor: p,
     texto: nombrePeriodo(p),
@@ -112,10 +124,27 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
           puedeEditar={puedeEditar}
           fechaMin={esAdmin ? undefined : primerDia(periodo)}
           fechaMax={hoy()}
+          historial={historial}
         />
       </section>
     </div>
   );
+}
+
+const CAMPOS: { campo: string; texto: string; ver: (f: FotoMovimiento) => string }[] = [
+  { campo: "fecha", texto: "Fecha", ver: (f) => fechaCorta(f.fecha) },
+  { campo: "tipo", texto: "Tipo", ver: (f) => (f.tipo === "INGRESO" ? "Ingreso" : "Egreso") },
+  { campo: "monto", texto: "Monto", ver: (f) => pesos(f.monto) },
+  { campo: "concepto", texto: "Concepto", ver: (f) => f.concepto },
+  { campo: "observaciones", texto: "Observaciones", ver: (f) => f.observaciones ?? "" },
+];
+
+/** Deja una edición lista para mostrar: fecha formateada y sólo los campos que cambiaron. */
+function edicionVista(e: Edicion): EdicionVista {
+  const cambios = CAMPOS.map((c) => ({ campo: c.texto, antes: c.ver(e.antes), despues: c.ver(e.despues) })).filter(
+    (c) => c.antes !== c.despues,
+  );
+  return { id: e.id, cuando: fechaHora(e.cuando), usuario: e.usuario ?? "Sistema", cambios };
 }
 
 function Dato({

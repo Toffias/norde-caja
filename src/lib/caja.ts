@@ -168,6 +168,42 @@ export type FilaAuditoria = {
 };
 
 /** Últimos registros del log; si vienen `acciones`, sólo esas (el filtro va en la consulta, antes del límite). */
+export type FotoMovimiento = {
+  fecha: string;
+  tipo: "INGRESO" | "EGRESO";
+  monto: number;
+  concepto: string;
+  observaciones: string | null;
+};
+
+export type Edicion = { id: number; cuando: Date; usuario: string | null; antes: FotoMovimiento; despues: FotoMovimiento };
+
+/** Ediciones registradas en el log para cada uno de los movimientos pedidos, de la más vieja a la más nueva. */
+export async function edicionesDe(ids: number[]): Promise<Map<number, Edicion[]>> {
+  const resultado = new Map<number, Edicion[]>();
+  if (ids.length === 0) return resultado;
+  const filas = await db
+    .select({
+      id: auditoria.id,
+      cuando: auditoria.fecha,
+      usuario: anulador.nombre,
+      movimientoId: auditoria.movimientoId,
+      detalle: auditoria.detalle,
+    })
+    .from(auditoria)
+    .leftJoin(anulador, eq(anulador.id, auditoria.usuarioId))
+    .where(and(eq(auditoria.accion, "EDITAR"), inArray(auditoria.movimientoId, ids)))
+    .orderBy(asc(auditoria.fecha), asc(auditoria.id));
+  for (const f of filas) {
+    const d = f.detalle as { antes?: FotoMovimiento; despues?: FotoMovimiento } | null;
+    if (!f.movimientoId || !d?.antes || !d.despues) continue;
+    const lista = resultado.get(f.movimientoId) ?? [];
+    lista.push({ id: f.id, cuando: f.cuando, usuario: f.usuario, antes: d.antes, despues: d.despues });
+    resultado.set(f.movimientoId, lista);
+  }
+  return resultado;
+}
+
 export async function listarAuditoria(limite = 300, acciones?: Accion[]): Promise<FilaAuditoria[]> {
   return db
     .select({

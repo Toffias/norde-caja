@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { Tipo } from "@/db/schema";
-import { fechaCorta, pesos } from "@/lib/periodo";
+import { fechaCorta, nombrePeriodo, pesos } from "@/lib/periodo";
 import { EditarMovimiento } from "./acciones-caja";
 import { Desplegable } from "./desplegable";
+import { HistorialMovimiento, type EdicionVista } from "./historial-movimiento";
 
 export type FilaTabla = {
   id: number;
@@ -31,6 +32,7 @@ export function TablaMovimientos({
   puedeEditar,
   fechaMin,
   fechaMax,
+  historial,
 }: {
   filas: FilaTabla[];
   saldoInicial: number;
@@ -43,6 +45,8 @@ export function TablaMovimientos({
   /** Límites de la fecha al editar, calculados en el servidor (hora Argentina). */
   fechaMin?: string;
   fechaMax: string;
+  /** Ediciones de cada movimiento (por id); sólo los que tienen alguna muestran el icono de historial. */
+  historial: Record<number, EdicionVista[]>;
 }) {
   const [texto, setTexto] = useState("");
   const [tipo, setTipo] = useState("TODOS");
@@ -51,8 +55,25 @@ export function TablaMovimientos({
   const [hasta, setHasta] = useState("");
   const [orden, setOrden] = useState<Orden>({ columna: "fecha", asc: true });
 
+  // La columna de acciones se muestra si se puede editar o si algún movimiento tiene historial para consultar.
+  const hayHistorial = Object.values(historial).some((l) => l.length > 0);
+  const mostrarAcciones = puedeEditar || hayHistorial;
   const responsables = useMemo(() => [...new Set(filas.map((f) => f.creadoPor))].sort(), [filas]);
   const hayFiltros = texto.trim() !== "" || tipo !== "TODOS" || responsable !== "TODOS" || !!desde || !!hasta;
+
+  // El calendario respeta min/max, pero escribiendo a mano se puede poner cualquier fecha:
+  // una fuera del mes no filtra nada y se avisa por qué.
+  const mes = nombrePeriodo(minFecha.slice(0, 7));
+  const avisoFecha = (f: string) => {
+    if (!f || f.length < 10) return null;
+    if (f < minFecha) return `No se puede filtrar por fechas anteriores a ${mes}: la caja muestra un mes por vez. Para ver otro mes, elegilo arriba.`;
+    if (f > maxFecha) return `No se puede filtrar por fechas posteriores a ${mes}.`;
+    return null;
+  };
+  const avisoDesde = avisoFecha(desde);
+  const avisoHasta = avisoFecha(hasta);
+  const desdeValido = avisoDesde ? "" : desde;
+  const hastaValido = avisoHasta ? "" : hasta;
 
   const visibles = useMemo(() => {
     const q = normalizar(texto.trim());
@@ -62,13 +83,13 @@ export function TablaMovimientos({
         (f) =>
           (tipo === "TODOS" || f.tipo === tipo) &&
           (responsable === "TODOS" || f.creadoPor === responsable) &&
-          (!desde || f.fecha >= desde) &&
-          (!hasta || f.fecha <= hasta) &&
+          (!desdeValido || f.fecha >= desdeValido) &&
+          (!hastaValido || f.fecha <= hastaValido) &&
           (!q || normalizar(`${f.concepto} ${f.observaciones ?? ""}`).includes(q)),
       );
     const signo = orden.asc ? 1 : -1;
     return lista.sort((a, b) => signo * (orden.columna === "saldo" ? a.saldo - b.saldo || a.i - b.i : a.i - b.i));
-  }, [filas, texto, tipo, responsable, desde, hasta, orden]);
+  }, [filas, texto, tipo, responsable, desdeValido, hastaValido, orden]);
 
   const ingresos = visibles.reduce((s, f) => s + (f.tipo === "INGRESO" ? f.monto : 0), 0);
   const egresos = visibles.reduce((s, f) => s + (f.tipo === "EGRESO" ? f.monto : 0), 0);
@@ -144,7 +165,8 @@ export function TablaMovimientos({
           <input
             id="desde"
             type="date"
-            className="input"
+            className={`input ${avisoDesde ? "border-egreso" : ""}`}
+            aria-invalid={!!avisoDesde}
             min={minFecha}
             max={hasta || maxFecha}
             value={desde}
@@ -158,7 +180,8 @@ export function TablaMovimientos({
           <input
             id="hasta"
             type="date"
-            className="input"
+            className={`input ${avisoHasta ? "border-egreso" : ""}`}
+            aria-invalid={!!avisoHasta}
             min={desde || minFecha}
             max={maxFecha}
             value={hasta}
@@ -169,6 +192,12 @@ export function TablaMovimientos({
           Limpiar
         </button>
       </div>
+
+      {(avisoDesde || avisoHasta) && (
+        <p role="alert" className="border-b border-line bg-egreso-bg px-5 py-2.5 text-sm font-medium text-egreso">
+          {avisoDesde ?? avisoHasta}
+        </p>
+      )}
 
       {hayFiltros && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 border-b border-line bg-muted/50 px-5 py-2.5 text-sm">
@@ -210,7 +239,7 @@ export function TablaMovimientos({
                     Saldo
                   </BotonOrden>
                 </th>
-                {puedeEditar && <th className="w-px px-3 py-3" />}
+                {mostrarAcciones && <th className="w-px px-3 py-3" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -221,7 +250,7 @@ export function TablaMovimientos({
                     Saldo inicial del mes
                   </td>
                   <td className="px-5 py-2.5 text-right num font-semibold">{pesos(saldoInicial)}</td>
-                  {puedeEditar && <td />}
+                  {mostrarAcciones && <td />}
                 </tr>
               )}
               {visibles.map((f) => (
@@ -250,9 +279,16 @@ export function TablaMovimientos({
                   >
                     {pesos(f.saldo)}
                   </td>
-                  {puedeEditar && (
+                  {mostrarAcciones && (
                     <td className="px-3 py-2">
-                      <EditarMovimiento m={f} fechaMin={fechaMin} fechaMax={fechaMax} puedeBorrar={esAdmin} />
+                      <div className="flex items-center gap-1">
+                        {puedeEditar && (
+                          <EditarMovimiento m={f} fechaMin={fechaMin} fechaMax={fechaMax} puedeBorrar={esAdmin} />
+                        )}
+                        {historial[f.id]?.length ? (
+                          <HistorialMovimiento concepto={f.concepto} ediciones={historial[f.id]} />
+                        ) : null}
+                      </div>
                     </td>
                   )}
                 </tr>
