@@ -15,7 +15,7 @@ export default async function LoginPage() {
         <div className="mb-8 flex flex-col items-center gap-4">
           <Marca className="h-auto w-56" />
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            Caja de oficina
+            Caja
           </span>
         </div>
         <FormLogin />

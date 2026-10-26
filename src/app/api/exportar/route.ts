@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { usuarioActual } from "@/lib/auth";
 import { asegurarCierres, resumenPeriodo } from "@/lib/caja";
+import { CAJA_DEFAULT, cajaDeSlug, nombreCaja, slugDe } from "@/lib/cajas";
 import { esPeriodo, nombrePeriodo, periodoActual } from "@/lib/periodo";
 
 const FORMATO_PESOS = '"$"#,##0;[Red]-"$"#,##0';
@@ -11,9 +12,11 @@ export async function GET(req: Request) {
 
   await asegurarCierres();
   const actual = periodoActual();
-  const pedido = new URL(req.url).searchParams.get("mes");
+  const params = new URL(req.url).searchParams;
+  const caja = cajaDeSlug(params.get("caja")) ?? CAJA_DEFAULT;
+  const pedido = params.get("mes");
   const periodo = esPeriodo(pedido) && pedido <= actual ? pedido : actual;
-  const r = await resumenPeriodo(periodo);
+  const r = await resumenPeriodo(caja, periodo);
 
   const libro = new ExcelJS.Workbook();
   libro.creator = "Caja Norde";
@@ -29,7 +32,7 @@ export async function GET(req: Request) {
     { key: "saldo", width: 16 },
   ];
 
-  hoja.getCell("A1").value = `Caja Norde — ${nombrePeriodo(periodo)}`;
+  hoja.getCell("A1").value = `${nombreCaja(caja)} — ${nombrePeriodo(periodo)}`;
   hoja.getCell("A1").font = { bold: true, size: 14 };
   hoja.getCell("A2").value = periodo === actual ? "Mes vigente (parcial)" : "Mes cerrado";
   hoja.getCell("A3").value = "Saldo inicial";
@@ -80,7 +83,7 @@ export async function GET(req: Request) {
   return new Response(new Uint8Array(buffer as ArrayBuffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="caja-norde-${periodo}.xlsx"`,
+      "Content-Disposition": `attachment; filename="caja-norde-${slugDe(caja)}-${periodo}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

@@ -11,12 +11,17 @@ type Ultimo = { id: number; descripcion: string } | null;
 
 /** Botones de la caja: nuevo ingreso, nuevo egreso y anular el último movimiento, cada uno con su modal. */
 export function AccionesCaja({
+  caja,
+  nombreCaja,
   periodo,
   fechaInicial,
   fechaMin,
   fechaMax,
   ultimo,
 }: {
+  /** Slug de la caja en la que se carga (va en el formulario). */
+  caja: string;
+  nombreCaja: string;
   periodo: string;
   fechaInicial: string;
   fechaMin?: string;
@@ -38,8 +43,9 @@ export function AccionesCaja({
         <IconoDeshacer /> Anular último
       </button>
 
-      <Modal abierto={nuevo !== null} onCerrar={() => setNuevo(null)} titulo="Nuevo movimiento">
+      <Modal abierto={nuevo !== null} onCerrar={() => setNuevo(null)} titulo={`Nuevo movimiento · ${nombreCaja}`}>
         <FormMovimiento
+          caja={caja}
           tipoInicial={nuevo ?? "EGRESO"}
           fechaInicial={fechaInicial}
           fechaMin={fechaMin}
@@ -48,7 +54,7 @@ export function AccionesCaja({
         />
       </Modal>
 
-      <Modal abierto={anular} onCerrar={() => setAnular(false)} titulo="Anular último movimiento">
+      <Modal abierto={anular} onCerrar={() => setAnular(false)} titulo={`Anular último movimiento · ${nombreCaja}`}>
         {ultimo && <ConfirmarAnular periodo={periodo} ultimo={ultimo} onListo={() => setAnular(false)} />}
       </Modal>
     </>

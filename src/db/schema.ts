@@ -8,9 +8,11 @@ import {
   json,
   mysqlEnum,
   mysqlTable,
+  primaryKey,
   timestamp,
   varchar,
 } from "drizzle-orm/mysql-core";
+import { CAJA_DEFAULT, CAJAS } from "../lib/cajas";
 
 export const ROLES = ["ADMIN", "USUARIO"] as const;
 export type Rol = (typeof ROLES)[number];
@@ -30,12 +32,16 @@ export const usuarios = mysqlTable("usuarios", {
   sesionesDesde: timestamp("sesiones_desde"),
 });
 
+// Columna común a las tablas de la caja: cada fila pertenece a una caja. Lo viejo quedó en OFICINA.
+const columnaCaja = () => mysqlEnum("caja", CAJAS).notNull().default(CAJA_DEFAULT);
+
 // Un movimiento de caja. `periodo` (AAAA-MM) se deriva de `fecha` y agrupa por mes.
 // Anular / borrar no elimina la fila: la marca con anulado_en y queda en la auditoría.
 export const movimientos = mysqlTable(
   "movimientos",
   {
     id: int("id").autoincrement().primaryKey(),
+    caja: columnaCaja(),
     fecha: date("fecha", { mode: "string" }).notNull(),
     periodo: char("periodo", { length: 7 }).notNull(),
     tipo: mysqlEnum("tipo", TIPOS).notNull(),
@@ -47,19 +53,24 @@ export const movimientos = mysqlTable(
     anuladoEn: timestamp("anulado_en"),
     anuladoPor: int("anulado_por"),
   },
-  (t) => [index("movimientos_periodo_idx").on(t.periodo, t.fecha)],
+  (t) => [index("movimientos_caja_periodo_idx").on(t.caja, t.periodo, t.fecha)],
 );
 
-// Foto de cada mes al cerrarse. cerrado_por NULL = cierre automático al empezar el mes siguiente.
-export const cierres = mysqlTable("cierres", {
-  periodo: char("periodo", { length: 7 }).primaryKey(),
-  saldoInicial: decimal("saldo_inicial", { precision: 14, scale: 2, mode: "number" }).notNull(),
-  ingresos: decimal("ingresos", { precision: 14, scale: 2, mode: "number" }).notNull(),
-  egresos: decimal("egresos", { precision: 14, scale: 2, mode: "number" }).notNull(),
-  saldoFinal: decimal("saldo_final", { precision: 14, scale: 2, mode: "number" }).notNull(),
-  cerradoEn: timestamp("cerrado_en").notNull().defaultNow(),
-  cerradoPor: int("cerrado_por"),
-});
+// Foto de cada mes de cada caja al cerrarse. cerrado_por NULL = cierre automático al empezar el mes siguiente.
+export const cierres = mysqlTable(
+  "cierres",
+  {
+    caja: columnaCaja(),
+    periodo: char("periodo", { length: 7 }).notNull(),
+    saldoInicial: decimal("saldo_inicial", { precision: 14, scale: 2, mode: "number" }).notNull(),
+    ingresos: decimal("ingresos", { precision: 14, scale: 2, mode: "number" }).notNull(),
+    egresos: decimal("egresos", { precision: 14, scale: 2, mode: "number" }).notNull(),
+    saldoFinal: decimal("saldo_final", { precision: 14, scale: 2, mode: "number" }).notNull(),
+    cerradoEn: timestamp("cerrado_en").notNull().defaultNow(),
+    cerradoPor: int("cerrado_por"),
+  },
+  (t) => [primaryKey({ columns: [t.caja, t.periodo] })],
+);
 
 export const ACCIONES = ["ANULAR", "BORRAR", "EDITAR", "CREAR_MES_CERRADO", "CERRAR_MES"] as const;
 export type Accion = (typeof ACCIONES)[number];
@@ -70,6 +81,7 @@ export const auditoria = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     fecha: timestamp("fecha").notNull().defaultNow(),
     usuarioId: int("usuario_id"),
+    caja: columnaCaja(),
     accion: mysqlEnum("accion", ACCIONES).notNull(),
     movimientoId: int("movimiento_id"),
     periodo: char("periodo", { length: 7 }),

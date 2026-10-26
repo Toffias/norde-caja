@@ -41,6 +41,38 @@
   color-scheme: dark;
 }
 
+/* Color propio de cada caja (para los selectores, que muestran las dos a la vez). */
+:root {
+  --caja-oficina: #c9302b;
+  --caja-osvaldo: #1d5fa8;
+}
+[data-theme="dark"] {
+  --caja-oficina: #ec5a52;
+  --caja-osvaldo: #5b9be6;
+}
+
+/* Caja Osvaldo: toda la pantalla pasa a una paleta azul, para que no se confunda con la de oficina.
+   La página de la caja marca la caja activa con data-caja; :has() la aplica también al encabezado. */
+html:has([data-caja="osvaldo"]) {
+  --background: #f2f5f9;
+  --muted: #e6ecf3;
+  --muted-foreground: #56616e;
+  --line: #d8e1eb;
+  --input: #c6d2df;
+  --brand: #1d5fa8;
+  --brand-foreground: #ffffff;
+}
+html[data-theme="dark"]:has([data-caja="osvaldo"]) {
+  --background: #11151a;
+  --card: #192028;
+  --muted: #212a34;
+  --muted-foreground: #a3adb9;
+  --line: #2b3541;
+  --input: #3a4552;
+  --brand: #5b9be6;
+  --brand-foreground: #0c1420;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

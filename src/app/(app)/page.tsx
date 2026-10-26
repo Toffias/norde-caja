@@ -1,5 +1,6 @@
 import { AccionesCaja } from "@/components/acciones-caja";
 import { IconoDescarga } from "@/components/iconos";
+import { SelectorCaja } from "@/components/selector-caja";
 import { SelectorMes } from "@/components/selector-mes";
 import type { EdicionVista } from "@/components/historial-movimiento";
 import { TablaMovimientos } from "@/components/tabla-movimientos";
@@ -13,6 +14,7 @@ import {
   type Edicion,
   type FotoMovimiento,
 } from "@/lib/caja";
+import { CAJA_DEFAULT, cajaDeSlug, nombreCaja, slugDe } from "@/lib/cajas";
 import {
   esPeriodo,
   fechaCorta,
@@ -30,16 +32,20 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
   const esAdmin = yo.rol === "ADMIN";
   await asegurarCierres();
 
+  const params = await searchParams;
+  // El proxy garantiza que ?caja= venga en la URL; el default es sólo por las dudas.
+  const caja = cajaDeSlug(typeof params.caja === "string" ? params.caja : null) ?? CAJA_DEFAULT;
+  const slug = slugDe(caja);
   const actual = periodoActual();
-  const pedido = (await searchParams).mes;
+  const pedido = params.mes;
   const periodo = typeof pedido === "string" && esPeriodo(pedido) && pedido <= actual ? pedido : actual;
   const esActual = periodo === actual;
   const puedeEditar = esAdmin || esActual;
 
   const [resumen, periodos, ultimo] = await Promise.all([
-    resumenPeriodo(periodo),
-    periodosDisponibles(),
-    puedeEditar ? ultimoMovimiento(periodo) : null,
+    resumenPeriodo(caja, periodo),
+    periodosDisponibles(caja),
+    puedeEditar ? ultimoMovimiento(caja, periodo) : null,
   ]);
   const historial = Object.fromEntries(
     [...(await edicionesDe(resumen.filas.map((f) => f.id)))].map(([id, lista]) => [id, lista.map(edicionVista)]),
@@ -51,10 +57,10 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-caja={slug}>
+      <SelectorCaja caja={caja} />
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-extrabold tracking-tight">Caja</h1>
-        <SelectorMes periodo={periodo} opciones={opciones} />
+        <SelectorMes caja={slug} periodo={periodo} opciones={opciones} />
         <span
           className={`rounded-md px-2.5 py-1 text-xs font-bold ${
             esActual ? "bg-ingreso-bg text-ingreso" : "bg-muted text-muted-foreground"
@@ -65,6 +71,8 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
         <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
           {puedeEditar && (
             <AccionesCaja
+              caja={slug}
+              nombreCaja={nombreCaja(caja)}
               periodo={periodo}
               fechaInicial={esActual ? hoy() : ultimoDia(periodo)}
               fechaMin={esAdmin ? undefined : primerDia(periodo)}
@@ -81,7 +89,7 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
               }
             />
           )}
-          <a href={`/api/exportar?mes=${periodo}`} className="btn-secundario">
+          <a href={`/api/exportar?caja=${slug}&mes=${periodo}`} className="btn-secundario">
             <IconoDescarga /> Exportar a Excel
           </a>
         </div>
@@ -112,7 +120,9 @@ export default async function CajaPage({ searchParams }: PageProps<"/">) {
 
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="font-extrabold tracking-tight">Movimientos de {nombrePeriodo(periodo)}</h2>
+          <h2 className="font-extrabold tracking-tight">
+            Movimientos de {nombrePeriodo(periodo)} · <span className="text-brand">{nombreCaja(caja)}</span>
+          </h2>
           <span className="text-xs font-semibold text-muted-foreground">{resumen.filas.length} movimientos</span>
         </div>
         <TablaMovimientos

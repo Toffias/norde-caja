@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { auditoria, movimientos, TIPOS, type Movimiento, type Tipo } from "@/db/schema";
 import { requerirAdmin, requerirUsuario } from "@/lib/auth";
 import { asegurarCierres, recalcularCierresDesde, ultimoMovimiento } from "@/lib/caja";
+import { cajaDeSlug } from "@/lib/cajas";
 import { leerMonto, type EstadoForm } from "@/lib/montos";
 import { esFecha, esPeriodo, hoy, periodoActual, periodoDe } from "@/lib/periodo";
 
@@ -44,6 +45,9 @@ function refrescar() {
 export async function crearMovimiento(_prev: EstadoForm, form: FormData): Promise<EstadoForm> {
   const yo = await requerirUsuario();
   await asegurarCierres();
+  // La caja viaja en el formulario (no en una cookie) para que cada pestaña cargue en la caja que muestra.
+  const caja = cajaDeSlug(String(form.get("caja") ?? ""));
+  if (!caja) return { error: "No se sabe en qué caja cargar. Recargá la página." };
   const datos = leerDatos(form);
   if (typeof datos === "string") return { error: datos };
 
@@ -56,16 +60,17 @@ export async function crearMovimiento(_prev: EstadoForm, form: FormData): Promis
   const mesPasado = periodo < periodoActual();
 
   await db.transaction(async (tx) => {
-    const [res] = await tx.insert(movimientos).values({ ...datos, periodo, creadoPor: yo.id });
+    const [res] = await tx.insert(movimientos).values({ ...datos, caja, periodo, creadoPor: yo.id });
     if (mesPasado) {
       await tx.insert(auditoria).values({
         usuarioId: yo.id,
+        caja,
         accion: "CREAR_MES_CERRADO",
         movimientoId: res.insertId,
         periodo,
         detalle: { nuevo: datos },
       });
-      await recalcularCierresDesde(periodo, tx);
+      await recalcularCierresDesde(caja, periodo, tx);
     }
   });
   refrescar();
@@ -82,7 +87,11 @@ export async function anularUltimo(_prev: EstadoForm, form: FormData): Promise<E
     return { error: "Sólo podés anular movimientos del mes vigente." };
   }
 
-  const ultimo = await ultimoMovimiento(periodo);
+  // La caja sale del movimiento confirmado: se anula el último de esa misma caja.
+  const confirmado = await db.query.movimientos.findFirst({ where: eq(movimientos.id, idEsperado) });
+  if (!confirmado) return { error: "El movimiento no existe." };
+  const caja = confirmado.caja;
+  const ultimo = await ultimoMovimiento(caja, periodo);
   if (!ultimo) return { error: "No quedan movimientos para anular en este mes." };
   // Si otra persona cargó algo mientras tanto, no anulamos algo distinto a lo que se confirmó.
   if (ultimo.id !== idEsperado) {
@@ -99,12 +108,13 @@ export async function anularUltimo(_prev: EstadoForm, form: FormData): Promise<E
 
     await tx.insert(auditoria).values({
       usuarioId: yo.id,
+      caja,
       accion: "ANULAR",
       movimientoId: ultimo.id,
       periodo,
       detalle: { movimiento: foto(ultimo) },
     });
-    if (periodo < periodoActual()) await recalcularCierresDesde(periodo, tx);
+    if (periodo < periodoActual()) await recalcularCierresDesde(caja, periodo, tx);
     return true;
   });
   if (!anulado) return { error: "Ese movimiento ya fue anulado." };
@@ -130,12 +140,13 @@ export async function editarMovimiento(_prev: EstadoForm, form: FormData): Promi
     await tx.update(movimientos).set({ ...datos, periodo }).where(eq(movimientos.id, id));
     await tx.insert(auditoria).values({
       usuarioId: yo.id,
+      caja: actual.caja,
       accion: "EDITAR",
       movimientoId: id,
       periodo: actual.periodo,
       detalle: { antes: foto(actual), despues: datos },
     });
-    await recalcularCierresDesde(periodo < actual.periodo ? periodo : actual.periodo, tx);
+    await recalcularCierresDesde(actual.caja, periodo < actual.periodo ? periodo : actual.periodo, tx);
   });
   refrescar();
   return { ok: "Cambios guardados." };
@@ -155,12 +166,13 @@ export async function borrarMovimiento(_prev: EstadoForm, form: FormData): Promi
     if (res.affectedRows === 0) return false;
     await tx.insert(auditoria).values({
       usuarioId: yo.id,
+      caja: actual.caja,
       accion: "BORRAR",
       movimientoId: id,
       periodo: actual.periodo,
       detalle: { movimiento: foto(actual) },
     });
-    if (actual.periodo < periodoActual()) await recalcularCierresDesde(actual.periodo, tx);
+    if (actual.periodo < periodoActual()) await recalcularCierresDesde(actual.caja, actual.periodo, tx);
     return true;
   });
   if (!borrado) return { error: "El movimiento ya fue borrado por otra persona." };

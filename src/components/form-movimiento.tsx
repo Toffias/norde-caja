@@ -5,6 +5,8 @@ import { crearMovimiento, editarMovimiento } from "@/app/acciones/movimientos";
 import type { Tipo } from "@/db/schema";
 
 type Props = {
+  /** Slug de la caja donde se crea el movimiento; al editar no hace falta (el movimiento ya tiene su caja). */
+  caja?: string;
   tipoInicial?: Tipo;
   fechaMin?: string;
   fechaMax?: string;
@@ -21,7 +23,7 @@ type Props = {
   };
 };
 
-export function FormMovimiento({ tipoInicial, fechaMin, fechaMax, fechaInicial, onListo, editar }: Props) {
+export function FormMovimiento({ caja, tipoInicial, fechaMin, fechaMax, fechaInicial, onListo, editar }: Props) {
   const [estado, accion, enviando] = useActionState(editar ? editarMovimiento : crearMovimiento, {});
   const [tipo, setTipo] = useState<Tipo>(editar?.tipo ?? tipoInicial ?? "EGRESO");
 
@@ -32,6 +34,7 @@ export function FormMovimiento({ tipoInicial, fechaMin, fechaMax, fechaInicial, 
   return (
     <form action={accion} className="space-y-4">
       {editar && <input type="hidden" name="id" value={editar.id} />}
+      {caja && <input type="hidden" name="caja" value={caja} />}
       <input type="hidden" name="tipo" value={tipo} />
 
       <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Tipo de movimiento">

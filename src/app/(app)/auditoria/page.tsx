@@ -1,5 +1,6 @@
 import { requerirAdmin } from "@/lib/auth";
 import { listarAuditoria } from "@/lib/caja";
+import { CAJAS, cajaDeSlug, nombreCaja, slugDe, type CajaId } from "@/lib/cajas";
 import { fechaCorta, fechaHora, nombrePeriodo, pesos } from "@/lib/periodo";
 
 type Foto = { fecha: string; tipo: string; monto: number; concepto: string };
@@ -19,21 +20,41 @@ function describir(f?: Foto) {
 
 export default async function AuditoriaPage({ searchParams }: PageProps<"/auditoria">) {
   await requerirAdmin();
-  const todo = (await searchParams).ver === "todo";
-  const filas = await listarAuditoria(300, todo ? undefined : ["ANULAR", "BORRAR", "EDITAR"]);
+  const params = await searchParams;
+  const todo = params.ver === "todo";
+  const caja = cajaDeSlug(typeof params.caja === "string" ? params.caja : null) ?? undefined;
+  const filas = await listarAuditoria(300, todo ? undefined : ["ANULAR", "BORRAR", "EDITAR"], caja);
+  const url = (ver: boolean, c?: CajaId) => {
+    const q = new URLSearchParams();
+    if (ver) q.set("ver", "todo");
+    if (c) q.set("caja", slugDe(c));
+    return q.size ? `/auditoria?${q}` : "/auditoria";
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-3xl font-extrabold tracking-tight">Log de anulaciones</h1>
-        <div className="ml-auto flex gap-2 text-sm">
-          <a href="/auditoria" className={todo ? "btn-secundario" : "btn-primario"}>
+        <div className="ml-auto flex flex-wrap gap-2 text-sm">
+          <a href={url(false, caja)} className={todo ? "btn-secundario" : "btn-primario"}>
             Anulaciones, borrados y ediciones
           </a>
-          <a href="/auditoria?ver=todo" className={todo ? "btn-primario" : "btn-secundario"}>
+          <a href={url(true, caja)} className={todo ? "btn-primario" : "btn-secundario"}>
             Todo (incluye cierres)
           </a>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 text-sm">
+        <a href={url(todo)} className={caja ? "btn-secundario" : "btn-primario"}>
+          Todas las cajas
+        </a>
+        {CAJAS.map((c) => (
+          <a key={c} href={url(todo, c)} className={caja === c ? "btn-primario" : "btn-secundario"}>
+            <span className="size-2.5 rounded-full" style={{ background: `var(--caja-${slugDe(c)})` }} aria-hidden />
+            {nombreCaja(c)}
+          </a>
+        ))}
       </div>
 
       <section className="card overflow-x-auto">
@@ -45,6 +66,7 @@ export default async function AuditoriaPage({ searchParams }: PageProps<"/audito
               <tr>
                 <th className="px-4 py-2 font-medium">Cuándo</th>
                 <th className="px-4 py-2 font-medium">Quién</th>
+                <th className="px-4 py-2 font-medium">Caja</th>
                 <th className="px-4 py-2 font-medium">Acción</th>
                 <th className="px-4 py-2 font-medium">Mes</th>
                 <th className="px-4 py-2 font-medium">Detalle</th>
@@ -64,6 +86,16 @@ export default async function AuditoriaPage({ searchParams }: PageProps<"/audito
                   <tr key={f.id} className="align-top">
                     <td className="whitespace-nowrap px-4 py-2.5 num">{fechaHora(f.fecha)}</td>
                     <td className="px-4 py-2.5">{f.usuario ?? "Sistema"}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
+                        <span
+                          className="size-2.5 rounded-full"
+                          style={{ background: `var(--caja-${slugDe(f.caja)})` }}
+                          aria-hidden
+                        />
+                        {nombreCaja(f.caja)}
+                      </span>
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${a.clase}`}>
                         {a.texto}
